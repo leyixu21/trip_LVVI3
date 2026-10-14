@@ -16,7 +16,7 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Generated temporary video files
+# data folder
 /data/
 
 # Logs and temporary files
