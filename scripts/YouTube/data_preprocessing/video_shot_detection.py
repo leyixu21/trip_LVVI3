@@ -1,3 +1,12 @@
+"""Standalone helper for Google Cloud Video Intelligence shot detection.
+
+Detects camera shot changes in a video stored on Google Cloud Storage (GCS)
+using the google-cloud-videointelligence API. Not part of the numbered
+YouTube preprocessing pipeline; run directly as a CLI:
+
+    python video_shot_detection.py gs://<bucket>/<video>
+"""
+
 import argparse
 
 from google.cloud import videointelligence

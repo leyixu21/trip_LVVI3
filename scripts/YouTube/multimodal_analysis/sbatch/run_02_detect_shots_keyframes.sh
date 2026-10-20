@@ -41,7 +41,7 @@ module load allas
 source /projappl/project_2006782/leyixu/cpu-env/bin/activate
 
 # Move to script directory
-cd /scratch/project_2006782/leyixu/LVVI3_YouTube/scripts/YouTube/multimodal_analysis
+cd /scratch/project_2006782/leyixu/trip_LVVI3/scripts/YouTube/multimodal_analysis
 
 
 # ================================

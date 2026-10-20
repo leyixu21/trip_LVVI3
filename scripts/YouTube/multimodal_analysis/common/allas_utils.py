@@ -46,6 +46,10 @@ def download_bytes(conn: swiftclient.Connection, container: str, object_name: st
     try:
         return conn.get_object(container, object_name)[1]
     except Exception as e:
+        print(f"[allas] swift download failed for {container}/{object_name} ({e}); trying S3 fallback")
+    try:
+        return _fallback_s3().get_object(Bucket=container, Key=object_name)["Body"].read()
+    except Exception as e:
         print(f"[allas] failed to download {container}/{object_name}: {e}")
         return None
 
@@ -55,8 +59,40 @@ def upload_bytes(conn: swiftclient.Connection, container: str, object_name: str,
         conn.put_object(container, object_name, contents=data, content_type=content_type)
         return True
     except Exception as e:
+        print(f"[allas] swift upload failed for {container}/{object_name} ({e}); trying S3 fallback")
+    try:
+        _fallback_s3().put_object(Bucket=container, Key=object_name, Body=data, ContentType=content_type)
+        return True
+    except Exception as e:
         print(f"[allas] failed to upload {len(data)} bytes -> {container}/{object_name}: {e}")
         return False
+
+
+_S3_CLIENT = None
+
+
+def _fallback_s3():
+    """boto3 client built from the rclone S3 credentials
+    (~/.config/rclone/rclone.conf, remote s3allas-project_2006782). Used when
+    the OpenStack/swift credentials in .env are expired (keystone 401)."""
+    global _S3_CLIENT
+    if _S3_CLIENT is None:
+        import configparser
+        from pathlib import Path
+        import boto3
+        cfg = configparser.ConfigParser()
+        cfg.read(Path.home() / ".config" / "rclone" / "rclone.conf")
+        sec = cfg["s3allas-project_2006782"]
+        endpoint = sec["endpoint"]
+        if not endpoint.startswith("http"):
+            endpoint = "https://" + endpoint
+        _S3_CLIENT = boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=sec["access_key_id"],
+            aws_secret_access_key=sec["secret_access_key"],
+        )
+    return _S3_CLIENT
 
 
 def download_object(conn: swiftclient.Connection, container: str, object_name: str, save_path: str) -> bool:

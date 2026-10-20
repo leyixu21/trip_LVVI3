@@ -46,7 +46,7 @@ set +e
 source "$VLLM_WRAPPER_BASE/common.sh"
 set -e
 
-cd /scratch/project_2006782/leyixu/LVVI3_YouTube/scripts/YouTube/multimodal_analysis/pipeline
+cd /scratch/project_2006782/leyixu/trip_LVVI3/scripts/YouTube/multimodal_analysis/pipeline
 
 VIDEO_IDS_FILE_ARG=()
 if [ -n "$1" ]; then

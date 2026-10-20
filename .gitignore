@@ -26,6 +26,12 @@ env/
 *.temp
 *.swp
 
+# Media files (large binaries; live in Allas, not git)
+*.mp4
+*.mp3
+*.wav
+videos_tmp/
+
 # OS files
 .DS_Store
 Thumbs.db
