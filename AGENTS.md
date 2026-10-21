@@ -11,9 +11,17 @@ Most answers need only 1–3 targeted reads, not a directory walk.
 ## 1. Project layout (know this instead of listing)
 
 - `data/YouTube/` — main YouTube tables and pipeline outputs:
-  - `youtube_videos.csv` (renamed from `YouTube_videos.csv`) — **30,615 rows
-    but only 17,650 unique `video_id`** (one row per video × protected-area
-    intersection). Always `drop_duplicates('video_id')` before counting.
+  - `youtube_videos.csv` — **3,848 rows, one per clef-labeled NBT video** (metadata +
+    area flags incl. corrected `commercial_forest`; 2026-10-21). The old 30,615-row
+    `YouTube_videos.csv` pool file no longer exists here.
+  - `nbt_videos_in_state_owned_lands.gpkg` — **6,330 rows, one per NBT video in state
+    lands** (metadata + area flags + municipality; regenerated 2026-10-21 from the
+    current upstream NBT list by `03_youtube_nbt_spatial_filtering.ipynb`, which also
+    writes the matching `nbt_videos_in_state_owned_lands.csv` and the cleaned subset
+    `nbt_videos_in_state_owned_lands_cleaned.csv`, **6,110 videos** after removing
+    landscape/drone channels, Santa channels and music-topic videos). The old
+    6,222-row snapshot and the previous 6,006-row cleaned CSV are archived in
+    `data/_archive/gpkg_6222_snapshot_2026-10/`.
   - `transcripts.jsonl` — Whisper transcripts, 3,763 videos (one JSON line
     each: `video_id, language, segments[{start,end,text,...}], audio_events`).
   - `preprocessing_data/` — intermediate **CSVs** (all CSV since 2026-10;
@@ -25,19 +33,34 @@ Most answers need only 1–3 targeted reads, not a directory walk.
   YouTube run (3,745 videos): `clef_full.shard_*.jsonl` (raw per-video
   probabilities), `youtube_clef_activities_long.csv` (video × activity tidy
   table), `youtube_clef_videos_wide.csv` (per-video labels + metadata),
+  `youtube_clef_analysis.csv` (video × activity long table with
+  `structural_activity` + `accompany_type`, built for the RQ notebooks),
   `full_selection.json`. Rebuild with
-  `scripts/YouTube/multimodal_analysis/tools/build_clef_outputs.py`.
+  `scripts/YouTube/multimodal_analysis/tools/build_clef_outputs.py` and
+  `scripts/RQs_analysis/build_clef_analysis_tables.py`.
 - `data/Flickr/clef_labels/` — Flickr Clef labels (16,773 photos),
-  same record format.
+  same record format, plus `flickr_clef_analysis.csv` (image × activity long
+  table with `structural_activity`, `accompany_type`).
 - `data/activities.csv` — master activity taxonomy (survey + future
   social-media activities; `source` column). The inference prompt source
   remains `data/LVVI3/LVVI3_activities.csv` — do NOT edit that one for
   analysis purposes.
 - `data/LVVI3/` — LVVI3 survey data, **all CSV since 2026-10**: `lvvi3_survey_en.csv`
-  is the main table (451×128, read by every RQ notebook), plus `lvvi3_or.csv`,
-  `lvvi3_nbt.csv`, `lvvi3_or_en.csv`, `lvvi3_nbt_en.csv`. `LVVI3_activities.csv`
-  = activity taxonomy used for inference (35 activities, `activity` column
-  only; small, safe to read). `*.xlsx` — binary, never `Read`.
+  is the main table (451×132, read by every RQ notebook; one row per respondent ×
+  reported activity — the questionnaire one-shot `B1_*`/`B2_*` columns currently hold a
+  single main activity per respondent; area-type flags `national_park` /
+  `wilderness_area` / `nature_reserve` / `commercial_forest` derived from
+  `area_destination` codes 3 / 4 / 5–7 / `area_classification` 23, harmonized with the
+  social media layers), plus `lvvi3_or.csv`, `lvvi3_nbt.csv`, `lvvi3_or_en.csv`,
+  `lvvi3_nbt_en.csv`. `LVVI3_activities.csv` = activity taxonomy used for inference (35
+  activities, `activity` column only; small, safe to read). `*.xlsx` — binary, never
+  `Read`; the raw survey data sheet lives in
+  `data/YouTube/LVVI3_VIMAS_Leyi_Stateowned_land.xlsx` (the `data/LVVI3/` copy is
+  labels-only).
+- `data/LVVI3_activity_mapping.csv` — questionnaire option mapping produced by
+  `01_lvvi3_data_preprocessing.ipynb`: every one-shot `B1_*`/`B2_*` option (section,
+  column, activity category, option code, option text) with its canonical `sub_activity`,
+  `activity` and `structural_activity`. Middle product; safe to read (172 rows).
 - `data/Flickr/` — `flickr_finland_state_lands*.gpkg/csv`, `flickr_trips*.gpkg`,
   `images_z/` (downloaded photos), `clef_labels/`. `*.gpkg` — never `Read`.
 - `data/boundaries/` — geodata.
@@ -45,8 +68,27 @@ Most answers need only 1–3 targeted reads, not a directory walk.
   sub_activity run** (thousands of files: `inference_json_output/`,
   `accompany_inference_json_output/`, `YouTube_inferenced.csv`,
   `Flickr_inferenced.csv`, `multimodal_json_input/`). Count with
-  `ls | wc -l`; read at most one sample. Delete after clef labels fully
-  replace it. See its README.
+  `ls | wc -l`; read at most one sample. RQ notebooks no longer read it —
+  only `scripts/RQs_analysis/build_clef_analysis_tables.py` reads
+  `accompany_type` from it. See its README.
+- `data/activities_structural.csv` is referenced by `build_clef_analysis_tables.py` but
+  **missing on disk** (2026-10-21); the survey-side activity → structural_activity
+  mapping is embedded in `01_lvvi3_data_preprocessing.ipynb` and recoverable from
+  `data/LVVI3_activity_mapping.csv`.
+- **Commercial forest, corrected definition (2026-10-21):** a unit is in a commercial
+  forest iff it intersects `MH kiinteistot.gpkg` polygons with `Admin_level ==
+  'Metsätalous'` (Metsähallitus Forestry profit center; documented in the SYKE metadata
+  `MHKiinteistot.pdf` as `TULOSALUE`=1). The earlier definition (state land minus nature
+  reserves minus wilderness) **overestimated** commercial forest (~86,300 vs 53,700 km²)
+  because state land also holds Luontopalvelut protected/recreation land and
+  Kiinteistökehitys areas. The flag was recomputed in `nbt_videos_in_state_owned_lands
+  .gpkg`, `youtube_videos.csv`, `youtube_clef_videos_wide.csv` and the Flickr trip
+  gpkgs; `03_youtube_nbt_spatial_filtering.ipynb` and `flickr_trip_identification.ipynb`
+  carry the corrected code.
+- **Activity renames applied everywhere (2026-10-20): Forest → Nature
+  management, Plant → Gardening.** All clef outputs, the survey table
+  (`lvvi3_survey_en.csv`), `LVVI3_activities.csv`, `data/activities.csv`, and
+  the Flickr trip gpkgs are already updated.
 - **Facial recognition was removed entirely (2026-10):** no
   `gender_age_output/`, `person_detection_output/`, `*_faces.csv`, or
   `demographic_clustering.ipynb` anywhere (recoverable from git history only).
@@ -54,7 +96,8 @@ Most answers need only 1–3 targeted reads, not a directory walk.
   01 exploration → 02 NBT identification (Qwen3-14B) → 03 NBT spatial
   filtering → 04 activity labeling (**LEGACY**, reads the archive; superseded
   by the clef pipeline). `scripts/LVVI3/data_preprocessing/0N_*` — 01 survey
-  decode/translate → 02 sub_activity→activity mapping → `lvvi3_survey_en.csv`.
+  preprocessing (raw xlsx → `lvvi3_survey_en.csv` + `LVVI3_activity_mapping.csv`) →
+  02 exploration (visit-type MCA/Ward clustering + survey EDA).
   `scripts/Flickr/data_preprocessing/0N_*` — 01 download → 02 activity
   labeling (**LEGACY**). Full table: `scripts/README.md`.
 - `scripts/RQs_analysis/` — research-question analyses, incl.
